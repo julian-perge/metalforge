@@ -24,5 +24,9 @@
 @end
 #define METALFORGE_RESIDENCY_DESC() ((MTLResidencySetDescriptor *)[NSClassFromString(@"MTLResidencySetDescriptor") new])
 #else
+// With the macOS 15 SDK or newer, MTLDevice and MTLCommandQueue declare the residency methods themselves, so the casts in
+// mcmetal.m name those protocols instead of the stand-ins above.
+#define MTLDeviceResidency MTLDevice
+#define MTLCommandQueueResidency MTLCommandQueue
 #define METALFORGE_RESIDENCY_DESC() [MTLResidencySetDescriptor new]
 #endif
