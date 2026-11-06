@@ -23,7 +23,7 @@ public final class MixinPlugin implements IMixinConfigPlugin {
         int dot = rest.indexOf('.');
         String opt = dot < 0 ? rest : rest.substring(0, dot);
         String mod = NEEDS_MOD.get(opt);
-        if (mod != null && net.neoforged.fml.loading.LoadingModList.get().getModFileById(mod) == null) return false;
+        if (mod != null && net.neoforged.fml.loading.FMLLoader.getCurrent().getLoadingModList().getModFileById(mod) == null) return false;
         if (opt.equals("infra")) return true;            // shared hooks; each optimization still gates itself
         return Options.enabled(opt);
     }

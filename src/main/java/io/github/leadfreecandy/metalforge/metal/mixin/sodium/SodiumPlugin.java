@@ -13,7 +13,7 @@ public final class SodiumPlugin implements IMixinConfigPlugin {
 	private static boolean sodium() {
 		if (present == null) {
 			try {
-				present = net.neoforged.fml.loading.LoadingModList.get().getModFileById("sodium") != null;
+				present = net.neoforged.fml.loading.FMLLoader.getCurrent().getLoadingModList().getModFileById("sodium") != null;
 			} catch (Throwable t) {
 				present = false;
 			}

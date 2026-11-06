@@ -17,7 +17,7 @@ public abstract class MinecraftMixin {
 			|| !"aarch64".equals(System.getProperty("os.arch"))) return backends;
 		// Iris draws with OpenGL directly (and casts the device to the GL one at startup): stay on OpenGL when it's installed.
 		try {
-			if (net.neoforged.fml.loading.LoadingModList.get().getModFileById("iris") != null) {
+			if (net.neoforged.fml.loading.FMLLoader.getCurrent().getLoadingModList().getModFileById("iris") != null) {
 				com.mojang.logging.LogUtils.getLogger().warn("MetalForge Metal: Iris is installed (OpenGL only); using OpenGL. Remove Iris to use Metal.");
 				return backends;
 			}
