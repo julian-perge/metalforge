@@ -74,9 +74,19 @@ tasks.register('compileNative', Exec) {
     outputs.file output
     onlyIf { System.getProperty('os.name').startsWith('Mac') }
     doFirst { output.parentFile.mkdirs() }
-    commandLine(['clang', '-fno-objc-arc', '-O2', '-Wall', '-Wno-deprecated-declarations', '-arch', 'arm64', '-mmacosx-version-min=14.0', '-dynamiclib',
-        '-install_name', '@rpath/libmetalforge.dylib', '-framework', 'Cocoa', '-framework', 'CoreGraphics', '-framework', 'CoreVideo',
-        '-framework', 'Foundation', '-framework', 'Metal', '-framework', 'QuartzCore', '-o', output] + sources)
+    commandLine([
+        'clang',
+        '-fno-objc-arc', '-O2', '-Wall', '-Wno-deprecated-declarations',
+        '-arch', 'arm64', '-mmacosx-version-min=14.0',
+        '-dynamiclib',
+        '-install_name', '@rpath/libmetalforge.dylib',
+        '-framework', 'Cocoa',
+        '-framework', 'CoreGraphics',
+        '-framework', 'CoreVideo',
+        '-framework', 'Foundation',
+        '-framework', 'Metal',
+        '-framework', 'QuartzCore', '-o', output
+    ] + sources as List<String>)
 }
 processResources { dependsOn 'compileNative'; from(nativeOut) }
 tasks.named('jar') {
