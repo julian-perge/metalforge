@@ -483,6 +483,11 @@ final class MetalEncoder implements CommandEncoderBackend {
 	 */
 	private final class Staging {
 		private static final long BLOCK = 4L << 20;
+		/**
+		 * Most blocks kept for reuse (-Dmetalforge.metal.stagingKeep, default 16 = 64 MiB). An atlas stitch uploads every sprite in
+		 * one submit, and keeping every block it used would hold that much shared memory for the rest of the session.
+		 */
+		private static final int KEEP = Integer.getInteger("metalforge.metal.stagingKeep", 16);
 
 		record Slice(long handle, long offset) {
 		}
@@ -527,7 +532,7 @@ final class MetalEncoder implements CommandEncoderBackend {
 			this.at = 0;
 			MetalEncoder.this.afterGpuFinishes(() -> {
 				for (Block b : done) {
-					if (b.size == BLOCK) this.free.add(b);
+					if (b.size == BLOCK && this.free.size() < KEEP) this.free.add(b);
 					else Native.release(b.handle);
 				}
 			});

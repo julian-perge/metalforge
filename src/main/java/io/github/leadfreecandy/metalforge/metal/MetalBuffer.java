@@ -20,6 +20,12 @@ class MetalBuffer extends GpuBuffer {
 	int mapped;
 	/** Memory rename() moved off and the GPU is done with, for the next rename. */
 	private final ArrayDeque<Long> spares = new ArrayDeque<>();
+	/**
+	 * Spare memory one buffer may keep, in bytes (-Dmetalforge.metal.renameSpareMiB, default 32), but always at least two spares.
+	 * Without this limit the spare count grows to the most renames any few consecutive frames needed and never shrinks, so one busy
+	 * frame (a screen full of immediate draws) would keep that many copies of the buffer until the buffer is closed.
+	 */
+	private static final long SPARE_BYTES = Long.getLong("metalforge.metal.renameSpareMiB", 32) << 20;
 
 	MetalBuffer(MetalEncoder encoder, long handle, @GpuBuffer.Usage int usage, long size) {
 		this(encoder, handle, usage, size, Native.bufferContents(handle));
@@ -64,7 +70,7 @@ class MetalBuffer extends GpuBuffer {
 		this.address = Native.bufferContents(this.handle);
 		this.lastUse = -1;
 		this.encoder.afterGpuFinishes(() -> {
-			if (this.closed) Native.release(old);
+			if (this.closed || this.spares.size() >= Math.max(2, SPARE_BYTES / Math.max(1, this.size()))) Native.release(old);
 			else this.spares.add(old);
 		});
 		return true;

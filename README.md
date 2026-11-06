@@ -84,6 +84,8 @@ Integrations marked with a mod name only apply when that mod is installed.
 | `-Dmetalforge.metal.smoothMaxLead=3` | Most frames of lead smooth pacing may use (latency vs. tolerance of slow frames). |
 | `-Dmetalforge.metal.presentQueue=false` | Present on the render thread instead of the second queue. |
 | `-Dmetalforge.metal.pace=false` | With VSync off, present every frame instead of the last one per refresh. |
+| `-Dmetalforge.metal.stagingKeep=16` | Most 4 MiB upload staging blocks kept for reuse (default 16, so 64 MiB). Blocks beyond that are freed once the GPU is done with them, so a texture atlas upload doesn't hold its peak staging memory for the whole session. |
+| `-Dmetalforge.metal.renameSpareMiB=32` | Most spare memory each buffer keeps from whole-buffer rewrites (default 32 MiB, always at least two spares). |
 
 In CurseForge these go in the instance's *Profile Options → Java arguments*.
 
