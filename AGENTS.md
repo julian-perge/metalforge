@@ -8,6 +8,10 @@ NeoForge 26.1.2 mod that replaces Minecraft's OpenGL renderer with a native Meta
 - Remove Iris from every instance used for a Metal run, because with Iris installed MetalForge uses the OpenGL fallback ([ADR 0001](docs/adr/0001-iris-forces-opengl-fallback.md)).
 - Before any in-game run, ask the owner and wait for a yes. The request says what will run, how long it takes, whether the game window must be in front or the keyboard free, how you will stop it and where the output lands. A run is one game launch through quit plus whatever drives it (a sampler, a bridge script, key events), and one yes covers exactly what the request said. The owner has other sessions that need window focus and access.
 
+## Read the doc that matches the task
+
+- [Build and tooling](docs/agents/build-and-tooling.md): before changing the Gradle setup, the native build, CI or hooks, or before moving the mod to a new Minecraft version.
+
 ## Agent skills
 
 ### Issue tracker
