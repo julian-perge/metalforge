@@ -11,6 +11,20 @@ set positional-arguments
 default:
     @just --list --unsorted
 
+# Recipes that call tools installed outside Gradle depend on this, so a missing tool stops the recipe before it starts. docs/agents/build-and-tooling.md says how to install them.
+[private]
+require +tools:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    missing=()
+    for tool in "$@"; do
+        command -v "$tool" >/dev/null || missing+=("$tool")
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "error: missing ${missing[*]}. See docs/agents/build-and-tooling.md." >&2
+        exit 1
+    fi
+
 [doc('Compile the Java and the native Metal library, and build the jar into build/libs/')]
 [group('gradle')]
 build:
@@ -27,3 +41,8 @@ client *flags:
 gradle-update version:
     ./gradlew wrapper --gradle-version "$1"
     ./gradlew wrapper --gradle-version "$1"
+
+[doc('Run every pre-commit hook on every file')]
+[group('lint')]
+lint: (require "prek")
+    prek run --all-files --show-diff-on-failure

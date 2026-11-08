@@ -2,6 +2,8 @@
 
 - The jar builds only on macOS with the Xcode Command Line Tools. `compileNative` compiles `libmetalforge.dylib` with clang, and the `jar` task fails when that library is missing.
 - `./gradlew clean` also deletes `build/moddev`, which ModDevGradle downloads again, so the next build needs the network.
+- `brew install just prek` installs the two tools. Run `prek install` once in a clone, and each commit then runs the hooks in `prek.toml` on the staged files. `just lint` runs them on every file.
+- No Java formatter runs, because the ported Java is indented with tabs in some files and four spaces in others, and a formatter would rewrite most of it.
 
 ## Moving to a new Minecraft version
 
