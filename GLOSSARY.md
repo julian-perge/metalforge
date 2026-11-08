@@ -27,3 +27,19 @@ _Avoid_: Atlas load
 **OpenGL fallback**:
 Running the stock OpenGL renderer instead of Metal. It is chosen when Iris is installed, on non-Apple-Silicon hardware, or with `-Dmetalforge.metal=false`.
 _Avoid_: Compatibility mode
+
+**Hitch**:
+A displayed frame that appears three or more display refreshes after the previous one, counted in the `3x+` bucket of the `[shown]` log. Hitch share is the fraction of displayed frames that are hitches.
+_Avoid_: Stutter, lag spike
+
+**Frame time**:
+The time between two consecutive frames leaving the render thread, in milliseconds. Unlike a hitch, it does not depend on the display's refresh rate.
+_Avoid_: Frametime
+
+**Scene**:
+A fixed world state and camera position captured under both Metal and the OpenGL fallback, so the two screenshots can be compared.
+_Avoid_: Test world, shot
+
+**A/B check**:
+Comparing the screenshots of a scene taken under Metal and under the OpenGL fallback to find rendering differences.
+_Avoid_: Visual test, diff test
