@@ -1,6 +1,6 @@
 # MetalForge
 
-NeoForge 26.1.2 mod that replaces Minecraft's OpenGL renderer with a native Metal renderer on macOS.
+NeoForge 26.3 mod that replaces Minecraft's OpenGL renderer with a native Metal renderer on macOS. The 26.1.2 version lives on the protected `26.1.2` branch ([ADR 0002](docs/adr/0002-main-follows-the-newest-minecraft.md)).
 
 ## Every task
 
@@ -12,7 +12,7 @@ NeoForge 26.1.2 mod that replaces Minecraft's OpenGL renderer with a native Meta
 
 - [Build and tooling](docs/agents/build-and-tooling.md): before changing the Gradle setup, the native build, CI or hooks, or before moving the mod to a new Minecraft version.
 - [Verifying changes](docs/agents/verifying.md): before checking a change in the game, or before driving a dev client through the Structure Lab bridge.
-- [Minecraft, NeoForge and Sodium lookups](docs/agents/minecraft-lookups.md): before using a Minecraft, Blaze3D, NeoForge, FML or Sodium class, method, registry id or version.
+- [Minecraft, NeoForge and Sodium lookups](docs/agents/minecraft-lookups.md): before using a Minecraft, Renderpearl, NeoForge, FML or Sodium class, method, registry id or version.
 
 ## Agent skills
 

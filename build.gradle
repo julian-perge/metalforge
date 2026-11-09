@@ -1,4 +1,4 @@
-// MetalForge: a native Apple Metal renderer plus exact client optimizations for Minecraft 26.1.2 on NeoForge.
+// MetalForge: a native Apple Metal renderer plus exact client optimizations for Minecraft 26.3 on NeoForge.
 // The Metal backend is ported from mcopt (https://github.com/noahdunnagan/mcopt, Apache-2.0; see NOTICE).
 plugins {
     id 'java-library'

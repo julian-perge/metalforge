@@ -1,17 +1,17 @@
 # MetalForge
 
-**A native Apple Metal renderer for Minecraft on NeoForge, with smooth frame pacing.** Drop it into a NeoForge 26.1.2 instance on an Apple Silicon Mac and Minecraft renders through Metal instead of Apple's deprecated OpenGL-on-Metal layer. It works alongside Sodium, and includes a set of exact (pixel-identical) client optimizations that also apply on Windows and Linux.
+**A native Apple Metal renderer for Minecraft on NeoForge, with smooth frame pacing.** Drop it into a NeoForge 26.3 instance on an Apple Silicon Mac and Minecraft renders through Metal instead of Apple's deprecated OpenGL-on-Metal layer. It works alongside Sodium, and includes a set of exact (pixel-identical) client optimizations that also apply on Windows and Linux.
 
-- **Loader:** NeoForge 26.1.2.109 or newer (Minecraft 26.1.2). Client-only: don't install it on servers.
+- **Loader:** NeoForge 26.3.0.101 or newer (Minecraft 26.3). Client-only: don't install it on servers. For Minecraft 26.1.2, use the [`26.1.2` branch](https://github.com/julian-perge/metalforge/tree/26.1.2).
 - **Metal renderer:** Apple Silicon Macs (M1 or newer), macOS 14+. On other platforms MetalForge stays on OpenGL and only applies the CPU/GPU optimizations.
-- **Sodium:** optional and recommended. With Sodium installed, Sodium's terrain renderer runs on Metal too.
-- **Java:** 25 (what Minecraft 26.1.2 ships with).
+- **Sodium:** optional and recommended. Sodium 0.9.3 for 26.3 (in beta) draws its terrain through Minecraft's renderer, so it runs on Metal too.
+- **Java:** 25 (what Minecraft 26.3 ships with).
 
-The Metal backend is a NeoForge port of [mcopt](https://github.com/noahdunnagan/mcopt) by Noah Dunnagan (Fabric, Apache-2.0), extended to work with Sodium and large modpacks.
+The Metal backend is a NeoForge port of [mcopt](https://github.com/noahdunnagan/mcopt) by Noah Dunnagan (Fabric, Apache-2.0), extended for large modpacks.
 
 ## Results
 
-Measured on a fanless MacBook Air M2 (24 GB), FTB Evolution 2 (about 420 mods). Settings were render distance 20 and simulation distance 8, a 1920x1080 window on a 100 Hz display, and 12 GB heap with ZGC. Averages over four ground-level spots after terrain finished loading.
+Measured on Minecraft 26.1.2 on a fanless MacBook Air M2 (24 GB), FTB Evolution 2 (about 420 mods). Settings were render distance 20 and simulation distance 8, a 1920x1080 window on a 100 Hz display, and 12 GB heap with ZGC. Averages over four ground-level spots after terrain finished loading.
 
 | | OpenGL + Sodium | MetalForge (uncapped) |
 |---|---|---|
@@ -24,8 +24,8 @@ Your numbers will differ with hardware, pack and settings.
 
 ## Install
 
-1. Install NeoForge 26.1.2 (CurseForge, Prism, Modrinth App or the official installer all work).
-2. Put `metalforge-26.1.2-<version>.jar` in the instance's `mods` folder.
+1. Install NeoForge 26.3 (CurseForge, Prism, Modrinth App or the official installer all work).
+2. Put `metalforge-26.3-<version>.jar` in the instance's `mods` folder.
 3. **Turn VSync on** in Video Settings for smooth pacing (recommended).
 4. On a Mac: if **Iris** is installed, MetalForge keeps OpenGL (Iris only works with OpenGL), so remove Iris to use Metal. Shader packs need Iris and OpenGL.
 
@@ -37,12 +37,12 @@ For large modpacks, give the game enough memory. 8 GB was too little for a 420-m
 
 ### Metal renderer (Apple Silicon)
 
-- Implements Minecraft's renderer interface (Blaze3D's GPU backend) on Metal, and is tried before OpenGL. Shaders go from GLSL to SPIR-V (shaderc) to Metal Shading Language (SPIRV-Cross) when they load.
+- Implements Minecraft's renderer interface (Renderpearl's GPU backend) on Metal, and is tried before OpenGL and Vulkan. Shaders go from GLSL to SPIR-V (shaderc) to Metal Shading Language (SPIRV-Cross) when they load.
 - From mcopt:
   - merged render passes and deferred clears, so fewer tile loads and stores on Apple's tile-based GPUs
   - the main depth buffer is discarded at frame end instead of written to memory
   - display-synced present pacing, and presenting from a second command queue so the render thread never waits for a drawable
-- Sodium on Metal: Sodium's chunk renderer, multidraw and command lists run on Metal buffers.
+- Sodium on Metal: Sodium's chunk renderer and multidraw run on the Metal backend through Minecraft's renderer interface, with no Sodium-specific code.
 - Uploads that replace a whole buffer get fresh memory instead of a GPU copy. This removes most per-frame encoder breaks from immediate-mode drawing.
 
 ### Smooth pacing
@@ -60,12 +60,13 @@ Each one leaves the rendered image unchanged and can be switched off individuall
 
 | Option | What it does |
 |---|---|
-| `prelude` | Drops the main-target clear that the level's own clear immediately overwrites, plus a render-target round trip on tick frames. |
+| `prelude` | Drops the main-target clear that the level's own clear immediately overwrites, plus a render-target round trip on frames that update the lightmap. |
 | `fbo` | (OpenGL) Fewer framebuffer switches: depth-only clears happen in the framebuffer already holding that depth, and no redundant unbinds. |
 | `gui_layer` | Vanilla places each GUI element by testing it against every element already on screen (quadratic). A small spatial index gives the same answer. This is about 2% of frame time with busy HUDs such as minimaps. |
 | `gui_sort` | Sorts GUI elements with an unboxed comparator in exactly vanilla's order. |
 | `particle_collide` | Particles in open air skip the full collision computation when none of the blocks they could touch has a collision shape. |
 | `cutout_sort` | (Sodium) Sorts cutout quads (leaves, grass) front-to-back within each facing at mesh time, so the GPU rejects more hidden fragments. |
+| `rgss` | (Sodium) With Texture Filtering set to RGSS, the terrain shader skips the four supersamples where they get no weight and the nearest sample where it gets none. |
 | `toro_light` | (ToroHealth) Looks up entity light only for entities that actually get an in-world health bar. |
 | `lootr_far` | (Lootr) Skips Lootr's per-tick client particle logic for containers beyond 32 blocks, where vanilla discards any particle it would spawn. |
 
@@ -81,7 +82,6 @@ Integrations marked with a mod name only apply when that mod is installed.
 | `-Dmetalforge.metal.smoothMaxLead=3` | Most frames of lead smooth pacing may use (latency vs. tolerance of slow frames). |
 | `-Dmetalforge.metal.presentQueue=false` | Present on the render thread instead of the second queue. |
 | `-Dmetalforge.metal.pace=false` | With VSync off, present every frame instead of the last one per refresh. |
-| `-Dmetalforge.metal.stagingKeep=16` | Most 4 MiB upload staging blocks kept for reuse (default 16, so 64 MiB). Blocks beyond that are freed once the GPU is done with them, so a texture atlas upload doesn't hold its peak staging memory for the whole session. |
 | `-Dmetalforge.metal.renameSpareMiB=32` | Most spare memory each buffer keeps from whole-buffer rewrites (default 32 MiB, always at least two spares). |
 | `-Dmetalforge.metal.frameLog=true` | Every 5 seconds, log the p50, p95, p99 and max frame time in ms (the time between two frames leaving the render thread) as a `[frame]` line beside `[shown]`. Off by default. |
 
@@ -90,7 +90,7 @@ In CurseForge these go in the instance's *Profile Options → Java arguments*.
 ## Compatibility
 
 - **Iris / shader packs:** with Iris installed, MetalForge uses OpenGL (and its other optimizations).
-- **Mods that call OpenGL directly** draw nothing on Metal. Mods that render through Minecraft's own renderer (nearly all modern ones) work. MetalForge was tested with the whole FTB Evolution 2 pack, about 420 mods, including Sodium, ImmediatelyFast, EntityCulling, FTB Chunks and JEI. If something is invisible, check it with `-Dmetalforge.metal=false` and please open an issue.
+- **Mods that call OpenGL directly** draw nothing on Metal. Mods that render through Minecraft's own renderer (nearly all modern ones) work. On Minecraft 26.1.2, MetalForge was tested with the whole FTB Evolution 2 pack, about 420 mods, including Sodium, ImmediatelyFast, EntityCulling, FTB Chunks and JEI. If something is invisible, check it with `-Dmetalforge.metal=false` and please open an issue.
 - **Intel Macs:** not supported by the Metal renderer (it's arm64-only); the other optimizations still apply.
 
 ## Building
