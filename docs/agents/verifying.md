@@ -11,10 +11,11 @@ The bridge writes `<game dir>/structurelab/connection.json` with a `url` and a `
 | Op             | Arguments                        | What it does                                                                                                                                                     |
 | -------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `client`       | none                             | Reports `in_world`, `paused`, the open `screen`, and the player's position and dimension.                                                                       |
-| `new_world`    | `name`                           | Creates a creative world with a random seed and returns its `folder`. Fails while a world is open.                                                               |
+| `new_world`    | `name`, optional `seed`          | Creates a creative world with `seed` (a whole number) or a random seed, and returns its `folder` and `seed`. Fails while a world is open.                        |
 | `command`      | `command`                        | Runs a command as the player and returns the messages it would print.                                                                                            |
 | `aim`          | `from`, `at` (each `[x, y, z]`)  | Puts the player's eyes at `from`, looking at the center of block `at`, closes any open screen, and returns `yaw` and `pitch`.                                    |
 | `screenshot`   | `name` (letters, digits, `_`, `-`) | Saves `screenshots/<name>.png` in the game dir, with the HUD and any open screen, and returns its `path`.                                                      |
+| `reload`       | none                             | Reloads resource packs like F3+T, waits until the loading overlay has closed, and returns `ok` and `elapsed_ms`. Fails after 90 seconds.                         |
 | `chunk_loaded` | `position`, optional `dimension` | Reports whether that chunk is loaded.                                                                                                                            |
 | `close_screen` | none                             | Closes the open screen.                                                                                                                                          |
 | `quit`         | none                             | Stops the client.                                                                                                                                                |
@@ -23,6 +24,8 @@ The bridge writes `<game dir>/structurelab/connection.json` with a `url` and a `
 - Wait for `client` to report `in_world` true before sending commands.
 - The player is not frozen after `aim`, so build a floor under `from` (a barrier block works), or the player falls before the screenshot.
 - `screenshot` calls vanilla's screenshot code on the main render target, so under Metal it exercises MetalForge's texture readback.
+- Give both runs of an A/B screenshot comparison the same `seed` in `new_world`, so they render the same terrain. No op leaves a world, so each world needs its own game launch. A fixed seed keeps the terrain but not the exact spawn, which varies by a few blocks, so `aim` from fixed positions.
+- `reload` replaces an F3+T keypress, so a harness needs no macOS Accessibility permission. Its `elapsed_ms` includes the overlay's two-second fade-out. Minecraft never finishes a failed reload, so `reload` reports one as the 90-second timeout, and the cause is in `run/logs/latest.log`.
 - A fresh `run/` opens the accessibility onboarding screen first, and `new_world` works from it.
 - With a warm Gradle cache the bridge answered 15 seconds after launch, and a new world was playable 7 seconds after `new_world`. When the bridge is not up after a minute, read `run/logs/latest.log`.
 - Confirm that Metal is active from the log line `MetalForge Metal backend`, which names the GPU.
