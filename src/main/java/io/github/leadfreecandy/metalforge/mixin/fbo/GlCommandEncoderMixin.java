@@ -1,6 +1,7 @@
 package io.github.leadfreecandy.metalforge.mixin.fbo;
 
 import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
 import com.mojang.renderpearl.backend.opengl.GlStateManager;
 import com.mojang.renderpearl.backend.opengl.GlTexture;
 import io.github.leadfreecandy.metalforge.opt.FboTracker;
@@ -39,5 +40,15 @@ public abstract class GlCommandEncoderMixin {
         at = @At(value = "INVOKE", target = "Lcom/mojang/renderpearl/backend/opengl/GlStateManager;_glBindFramebuffer(II)V"), require = 1)
     private void metalforge$noUnbind(int target, int fbo) {
         if (fbo != 0) GlStateManager._glBindFramebuffer(target, fbo);
+    }
+
+    /**
+     * The blit to the window restores the draw framebuffer bound before it, which without the unbinds above is the last
+     * pass's framebuffer, not the window's. With that bound at the swap, the window stayed black on macOS (OpenGL 4.1 on
+     * Metal), so the window's framebuffer is bound again before the swap, as vanilla leaves it.
+     */
+    @Inject(method = "presentTexture", at = @At("RETURN"))
+    private void metalforge$bindWindowForSwap(long windowHandle, GpuTextureView textureView, int swapchainWidth, int swapchainHeight, CallbackInfo ci) {
+        GlStateManager._glBindFramebuffer(36160, 0);
     }
 }
