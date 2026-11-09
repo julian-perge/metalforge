@@ -210,9 +210,46 @@ final class MetalDevice implements GpuDeviceBackend {
 			else for (int k = 0; k < 4; k++) Native.shown(k);
 			this.shownLoggedAt = t;
 		}
+		if (FRAME_LOG) this.recordFrame(t);
 	}
 
 	private long shownLoggedAt;
+
+	/** -Dmetalforge.metal.frameLog=true logs the percentiles of frame time (time between two presentFrame calls) every 5 seconds. */
+	private static final boolean FRAME_LOG = Boolean.parseBoolean(System.getProperty("metalforge.metal.frameLog", "false"));
+	/** Frame times in 0.1 ms bins up to 100 ms, so percentiles are exact to 0.1 ms. The last bin counts frames of 100 ms or more. */
+	private final int[] frameBins = new int[1001];
+	private long frameCount, frameMaxNs, lastFrameAt, frameLoggedAt;
+
+	private void recordFrame(long t) {
+		if (this.lastFrameAt != 0) {
+			long ns = t - this.lastFrameAt;
+			this.frameBins[(int) Math.min(ns / 100_000L, 1000L)]++;
+			this.frameCount++;
+			if (ns > this.frameMaxNs) this.frameMaxNs = ns;
+		}
+		this.lastFrameAt = t;
+		if (t - this.frameLoggedAt > 5_000_000_000L) {
+			if (this.frameLoggedAt != 0 && this.frameCount > 0) {
+				org.slf4j.LoggerFactory.getLogger("MetalForge").info("[frame] n={} p50={} p95={} p99={} max={} ms",
+					this.frameCount, this.framePercentile(0.50), this.framePercentile(0.95), this.framePercentile(0.99), String.format("%.1f", this.frameMaxNs / 1e6));
+			}
+			java.util.Arrays.fill(this.frameBins, 0);
+			this.frameCount = 0;
+			this.frameMaxNs = 0;
+			this.frameLoggedAt = t;
+		}
+	}
+
+	/** The upper edge of the bin holding the given percentile, in ms. The overflow bin reports the true maximum. */
+	private String framePercentile(double p) {
+		long target = (long) Math.ceil(this.frameCount * p), seen = 0;
+		for (int i = 0; i < this.frameBins.length; i++) {
+			seen += this.frameBins[i];
+			if (seen >= target) return i == 1000 ? String.format("%.1f", this.frameMaxNs / 1e6) : String.format("%.1f", (i + 1) / 10.0);
+		}
+		return "0.0";
+	}
 
 	@Override
 	public boolean isZZeroToOne() {

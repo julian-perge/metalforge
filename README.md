@@ -86,6 +86,7 @@ Integrations marked with a mod name only apply when that mod is installed.
 | `-Dmetalforge.metal.pace=false` | With VSync off, present every frame instead of the last one per refresh. |
 | `-Dmetalforge.metal.stagingKeep=16` | Most 4 MiB upload staging blocks kept for reuse (default 16, so 64 MiB). Blocks beyond that are freed once the GPU is done with them, so a texture atlas upload doesn't hold its peak staging memory for the whole session. |
 | `-Dmetalforge.metal.renameSpareMiB=32` | Most spare memory each buffer keeps from whole-buffer rewrites (default 32 MiB, always at least two spares). |
+| `-Dmetalforge.metal.frameLog=true` | Every 5 seconds, log the p50, p95, p99 and max frame time in ms (the time between two frames leaving the render thread) as a `[frame]` line beside `[shown]`. Off by default. |
 
 In CurseForge these go in the instance's *Profile Options → Java arguments*.
 
