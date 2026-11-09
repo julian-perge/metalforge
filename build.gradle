@@ -23,13 +23,10 @@ neoForge {
     }
 }
 
-// These still target 26.1.2 APIs, so they stay out of the build (and out of their mixin configs) until each is ported on
-// port-26.3: the optimizations below one commit at a time, then Sodium on Metal in its own slice.
+// The fbo optimization still targets the 26.1.2 OpenGL backend, so it stays out of the build (and out of
+// metalforge.mixins.json) until it is ported to the 26.3 one.
 sourceSets.main.java {
     exclude 'io/github/leadfreecandy/metalforge/mixin/fbo/**'
-    exclude 'io/github/leadfreecandy/metalforge/metal/mixin/sodium/**'
-    exclude 'io/github/leadfreecandy/metalforge/metal/MetalSodium.java'
-    exclude 'io/github/leadfreecandy/metalforge/metal/GlslFixup.java'
 }
 
 repositories {
@@ -60,6 +57,9 @@ dependencies {
 configurations {
     runtimeClasspath.extendsFrom localRuntime
 }
+
+// Sodium also loads in the dev client, so Sodium on Metal can be checked there.
+dependencies { localRuntime "maven.modrinth:sodium:${sodium_version}" }
 
 // Structure Lab drives the dev client over a local bridge for screenshots and checks (docs/agents/verifying.md). It is an unpublished local jar, so it loads only when -PstructureLabJar=<path to jar> is given.
 if (project.hasProperty('structureLabJar')) {
