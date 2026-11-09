@@ -47,6 +47,16 @@ dependencies {
     compileOnly files({ fileTree(sodiumInner) { include '*.jar' } }) { builtBy extractSodium }
 }
 
+// Dependencies declared with localRuntime reach the dev runtime classpath but never the jar.
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+// Structure Lab drives the dev client over a local bridge for screenshots and checks (docs/agents/verifying.md). It is an unpublished local jar, so it loads only when -PstructureLabJar=<path to jar> is given.
+if (project.hasProperty('structureLabJar')) {
+    dependencies { localRuntime files(project.property('structureLabJar')) }
+}
+
 // GLSL -> SPIR-V (shaderc) -> MSL (SPIRV-Cross): LWJGL bindings matching Minecraft's LWJGL. NeoForge doesn't put plain
 // jar-in-jar libraries on the game's class path, so their classes and arm64 natives are embedded in this jar.
 dependencies {

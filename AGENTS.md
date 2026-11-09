@@ -11,6 +11,7 @@ NeoForge 26.1.2 mod that replaces Minecraft's OpenGL renderer with a native Meta
 ## Read the doc that matches the task
 
 - [Build and tooling](docs/agents/build-and-tooling.md): before changing the Gradle setup, the native build, CI or hooks, or before moving the mod to a new Minecraft version.
+- [Verifying changes](docs/agents/verifying.md): before checking a change in the game, or before driving a dev client through the Structure Lab bridge.
 
 ## Agent skills
 
