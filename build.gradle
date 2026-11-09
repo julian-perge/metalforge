@@ -38,7 +38,7 @@ dependencies {
     compileOnly "maven.modrinth:lootr:${lootr_version}"
 }
 def sodiumInner = layout.buildDirectory.dir('sodium-inner')
-def extractSodium = tasks.register('extractSodium', Copy) {
+def extractSodium = tasks.register('extractSodium', Sync) {
     from({ configurations.sodiumOuter.collect { zipTree(it) } }) { include 'META-INF/jarjar/*.jar'; eachFile { path = name } }
     includeEmptyDirs = false
     into sodiumInner
