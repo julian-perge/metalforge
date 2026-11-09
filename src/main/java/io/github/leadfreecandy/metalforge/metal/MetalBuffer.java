@@ -1,29 +1,29 @@
-// Ported from mcopt (https://github.com/noahdunnagan/mcopt), Apache-2.0, Copyright 2026 Noah Dunnagan; re-targeted to 26.1.2.
 package io.github.leadfreecandy.metalforge.metal;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import java.nio.ByteBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.buffers.GpuBufferSlice;
+import com.mojang.renderpearl.backend.common.BaseGpuBuffer;
 import java.util.ArrayDeque;
 import org.lwjgl.system.MemoryUtil;
 
 /**
- * A shared-storage MTLBuffer. On Apple silicon the CPU mapping *is* the GPU memory, so map() is a pointer offset and uploads
- * never need a staging copy when the GPU isn't using the buffer. Mapping is unsynchronized (the game fences its ring buffers).
+ * A shared-storage MTLBuffer. On Apple silicon the CPU mapping *is* the GPU memory, so map() is a pointer
+ * offset and uploads never need a staging copy. Mapping is unsynchronized, exactly like the Vulkan backend.
  */
-class MetalBuffer extends GpuBuffer {
+class MetalBuffer extends BaseGpuBuffer {
 	/** The memory, which rename() can swap. */
 	long handle, address;
 	/** Submit index of the last command that touched this buffer on the GPU; see MetalEncoder.idle. */
 	long lastUse = -1;
+	/** One of Sodium's arena buffers (its terrain geometry), with MetalTerrain on: GPU copies into it go to the pre command buffer. */
+	boolean arena;
 	private final MetalEncoder encoder;
-	private boolean closed;
-	int mapped;
+	private boolean closed, mapped;
 	/** Memory rename() moved off and the GPU is done with, for the next rename. */
 	private final ArrayDeque<Long> spares = new ArrayDeque<>();
 	/**
 	 * Spare memory one buffer may keep, in bytes (-Dmetalforge.metal.renameSpareMiB, default 32), but always at least two spares.
-	 * Without this limit the spare count grows to the most renames any few consecutive frames needed and never shrinks, so one busy
-	 * frame (a screen full of immediate draws) would keep that many copies of the buffer until the buffer is closed.
+	 * A buffer rewritten whole many times in one frame otherwise keeps every copy it ever needed for the rest of the session.
 	 */
 	private static final long SPARE_BYTES = Long.getLong("metalforge.metal.renameSpareMiB", 32) << 20;
 
@@ -55,15 +55,11 @@ class MetalBuffer extends GpuBuffer {
 
 	/**
 	 * Moves this buffer onto other memory, for a write replacing all of it while the GPU may still read the old contents:
-	 * commands encoded before keep reading those, and the old memory is reused once this submit is done with it. False
-	 * while someone has it mapped (their view would keep pointing at the old memory).
+	 * commands encoded before keep reading those, and the old memory is reused once this submit is done with it. False for
+	 * a buffer someone mapped, whose view would keep pointing at the old memory.
 	 */
-	/** Bumped on every rename: bound slots may point at memory a buffer just left (MetalRenderPass rebinds). */
-	static int renames;
-
 	boolean rename() {
-		if (this.mapped > 0) return false;
-		renames++;
+		if (this.mapped || this.arena) return false;
 		long old = this.handle;
 		Long spare = this.spares.poll();
 		this.handle = spare != null ? spare : Native.bufferNew(this.encoder.ctx, this.size());
@@ -76,26 +72,11 @@ class MetalBuffer extends GpuBuffer {
 		return true;
 	}
 
-	GpuBuffer.MappedView map(long offset, long length) {
+	@Override
+	public GpuBufferSlice.MappedView map(long offset, long length, boolean read, boolean write) {
 		if (this.closed) throw new IllegalStateException("Buffer already closed");
 		if (offset < 0 || length < 0 || offset + length > this.size()) throw new IllegalArgumentException("Mapping out of range");
-		this.mapped++;
-		ByteBuffer data = MemoryUtil.memByteBuffer(this.address + offset, Math.toIntExact(length));
-		return new GpuBuffer.MappedView() {
-			private boolean done;
-
-			@Override
-			public ByteBuffer data() {
-				return data;
-			}
-
-			@Override
-			public void close() {
-				if (!this.done) {
-					this.done = true;
-					MetalBuffer.this.mapped--;
-				}
-			}
-		};
+		this.mapped = true;
+		return new GpuBufferSlice.MappedView(this.slice(offset, length), MemoryUtil.memByteBuffer(this.address + offset, Math.toIntExact(length)), () -> {});
 	}
 }

@@ -1,25 +1,33 @@
-// Ported from mcopt (https://github.com/noahdunnagan/mcopt), Apache-2.0, Copyright 2026 Noah Dunnagan; re-targeted to 26.1.2.
 package io.github.leadfreecandy.metalforge.metal;
 
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.textures.TextureFormat;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.common.BaseGpuTexture;
+import com.mojang.renderpearl.backend.common.BaseGpuTextureView;
+import org.joml.Vector4fc;
 import org.jspecify.annotations.Nullable;
 
-class MetalTexture extends GpuTexture {
+class MetalTexture extends BaseGpuTexture {
 	final long handle;
+	/** The encoder log: the submit this texture was last bound in (cold binds: not in the last 30). */
+	long encLastBind = -1000;
+	/** -Dmetalforge.metal.residentAnim: in the animation frames' residency set (removed before release), and its bytes. */
+	boolean resident;
+	long residentBytes;
+	/** Created with ShaderWrite usage (a compute kernel may write it). */
+	boolean shaderWrite;
 	private final MetalEncoder encoder;
 	private boolean closed;
 
 	/**
 	 * A clear that hasn't touched memory yet. Tile GPUs pay a full framebuffer write for a standalone clear and another
 	 * read when the next pass loads it; folding the clear into the next pass's load action costs nothing.
-	 * Color: {r, g, b, a}; null when none is pending.
 	 */
-	float @Nullable [] pendingColorClear;
+	@Nullable Vector4fc pendingColorClear;
 	double pendingDepthClear = Double.NaN;
 
-	MetalTexture(MetalEncoder encoder, long handle, @GpuTexture.Usage int usage, String label, TextureFormat format, int width, int height, int layers, int mips) {
+	MetalTexture(MetalEncoder encoder, long handle, @GpuTexture.Usage int usage, String label, GpuFormat format, int width, int height, int layers, int mips) {
 		super(usage, label, format, width, height, layers, mips);
 		this.encoder = encoder;
 		this.handle = handle;
@@ -38,12 +46,15 @@ class MetalTexture extends GpuTexture {
 	public void close() {
 		if (!this.closed) {
 			this.closed = true;
-			this.encoder.dropPendingClear(this);
+			if (this.resident) {
+				Native.textureResident(this.encoder.ctx, this.handle, 0);
+				MetalDevice.residentReleased(this);
+			}
 			this.encoder.releaseLater(this.handle);
 		}
 	}
 
-	static final class View extends GpuTextureView {
+	static final class View extends BaseGpuTextureView {
 		final long handle;
 		private final boolean ownsHandle;
 		private final MetalEncoder encoder;

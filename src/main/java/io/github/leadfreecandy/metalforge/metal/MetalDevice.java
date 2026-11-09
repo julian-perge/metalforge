@@ -1,69 +1,95 @@
-// Ported from mcopt (https://github.com/noahdunnagan/mcopt), Apache-2.0, Copyright 2026 Noah Dunnagan; re-targeted to 26.1.2's
-// GpuDeviceBackend.
 package io.github.leadfreecandy.metalforge.metal;
 
-import com.mojang.blaze3d.buffers.GpuBuffer;
-import com.mojang.blaze3d.pipeline.CompiledRenderPipeline;
-import com.mojang.blaze3d.pipeline.RenderPipeline;
-import com.mojang.blaze3d.shaders.ShaderSource;
-import com.mojang.blaze3d.systems.CommandEncoderBackend;
-import com.mojang.blaze3d.systems.GpuDeviceBackend;
-import com.mojang.blaze3d.textures.AddressMode;
-import com.mojang.blaze3d.textures.FilterMode;
-import com.mojang.blaze3d.textures.GpuSampler;
-import com.mojang.blaze3d.textures.GpuTexture;
-import com.mojang.blaze3d.textures.GpuTextureView;
-import com.mojang.blaze3d.textures.TextureFormat;
-import com.mojang.logging.LogUtils;
+import com.mojang.renderpearl.api.GpuFormat;
+import com.mojang.renderpearl.api.buffers.GpuBuffer;
+import com.mojang.renderpearl.api.commands.GpuQueryPool;
+import com.mojang.renderpearl.api.device.BackendCreationException;
+import com.mojang.renderpearl.api.device.DeviceFeatures;
+import com.mojang.renderpearl.api.device.DeviceInfo;
+import com.mojang.renderpearl.api.device.DeviceLimits;
+import com.mojang.renderpearl.api.device.DeviceType;
+import com.mojang.renderpearl.api.device.HintsAndWorkarounds;
+import com.mojang.renderpearl.api.textures.AddressMode;
+import com.mojang.renderpearl.api.textures.FilterMode;
+import com.mojang.renderpearl.api.textures.GpuSampler;
+import com.mojang.renderpearl.api.textures.GpuTexture;
+import com.mojang.renderpearl.api.textures.GpuTextureView;
+import com.mojang.renderpearl.backend.api.BackendRenderPipeline;
+import com.mojang.renderpearl.backend.api.CommandEncoderBackend;
+import com.mojang.renderpearl.backend.api.GpuDeviceBackend;
+import com.mojang.renderpearl.backend.api.GpuSurfaceBackend;
 import java.nio.ByteBuffer;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.OptionalLong;
+import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
-import org.slf4j.Logger;
 
 final class MetalDevice implements GpuDeviceBackend {
-	private static final Logger LOGGER = LogUtils.getLogger();
-	/** The Metal device the game runs on, or null when it runs on another backend. */
-	static volatile @Nullable MetalDevice active;
+	/**
+	 * Sodium grows its terrain geometry in arenas of up to 256 MiB, created the moment a region no longer fits (flight 5.34 s:
+	 * 179 MB). A fresh buffer's memory is found and wired in the submission of the first command buffer using it, the whole
+	 * buffer at once, and when free memory is short the kernel compresses other memory first: 36-45 ms of one frame on the mini
+	 * with a 4 GiB heap. So one arena of this size (and the two culling caches MetalTerrain adds per arena) is kept provisioned
+	 * ahead of need, off the render thread (Native.poolAdd), and handed to the next arena request it can hold, with its full
+	 * size: Sodium sizes the arena from buffer.size(). Costs its size in memory while it waits. 0 turns it off.
+	 */
+	private static final long ARENA_RESERVE = Long.getLong("metalforge.metal.arenaReserve", 256L << 20);
+	/** Wiring costs about 0.03 ms per MiB with memory free and 0.2-0.25 ms per MiB when short: only big arenas stall a frame. */
+	private static final long ARENA_RESERVE_MIN = 64L << 20;
+	/** A provisioned arena waits in the pool (at most one at a time). */
+	private boolean arenaReserved;
+	private final long ctx;
+	private final MetalEncoder encoder;
+	private final DeviceInfo info;
 
-	/** True while the Metal backend paces frames itself (MetalPacer): vanilla's frame limiter must not wait as well. */
-	static boolean smoothPacing() {
-		MetalDevice d = active;
-		return d != null && d.surface.smooth();
-	}
-	final long ctx;
-	final MetalEncoder encoder;
-	final MetalSurface surface;
-	private final String renderer;
-	private final ShaderSource defaultShaderSource;
-	private final Map<RenderPipeline, MetalPipeline> pipelines = new IdentityHashMap<>();
-
-	MetalDevice(long window, ShaderSource defaultShaderSource) {
-		this.defaultShaderSource = defaultShaderSource;
+	MetalDevice() throws BackendCreationException {
 		try (MemoryStack stack = MemoryStack.stackPush()) {
 			long name = stack.nmalloc(1, 256), err = stack.nmalloc(1, 1024);
 			this.ctx = Native.create(name, 256, err, 1024);
-			if (this.ctx == 0) throw new IllegalStateException("Metal unavailable: " + MemoryUtil.memUTF8(err));
-			this.renderer = MemoryUtil.memUTF8(name);
+			if (this.ctx == 0) throw new BackendCreationException("Metal unavailable: " + MemoryUtil.memUTF8(err), BackendCreationException.Reason.PLATFORM_ERROR);
+			this.info = new DeviceInfo(
+				MemoryUtil.memUTF8(name), "Apple", "Metal 3 (MetalForge/mcopt)", true, "Metal", 1.0F,
+				new DeviceLimits(16, 256, 16384, Native.maxBufferLength(this.ctx), Integer.MAX_VALUE, 8, Integer.MAX_VALUE),
+				// Every multi-draw form is a native loop of Metal draws, so all of them are "supported".
+				new DeviceFeatures(true, true, true, true, true, true, true, true),
+				Set.of(),
+				new HintsAndWorkarounds(false, false, true, false),
+				DeviceType.INTEGRATED);
 		}
-		this.encoder = new MetalEncoder(this, this.ctx);
-		this.surface = new MetalSurface(this.ctx, window);
-		LOGGER.info("MetalForge Metal backend (ported from mcopt) on {}", this.renderer);
+		this.encoder = new MetalEncoder(this.ctx);
+		org.slf4j.LoggerFactory.getLogger(MetalDevice.class).info("MetalForge Metal backend (ported from mcopt) on {}", this.info.name());
+		// -Dmetalforge.metal.cbdiag=MS: stall diagnostics on stderr (big buffer allocations, slow command buffers); see mcmetal.m.
+		String diag = System.getProperty("metalforge.metal.cbdiag");
+		if (diag != null) Native.diagEnable(Double.parseDouble(diag));
+		// -Dmetalforge.metal.gpuCount[=PATH]: measurement only, per render encoder and debug group: samples passing depth (visibility
+		// counts), draws and primitives per pipeline, one JSON line each to PATH (true: gpucount.jsonl in the game dir); see mcmetal.m.
+		// -Dmetalforge.metal.gpuCount.every=N: only every Nth frame (the frames between run as without the flag).
+		// -Dmetalforge.metal.gpuCount.groups=false: one visibility slot per encoder (no new slot at debug groups).
+		if (MetalPipeline.GPU_COUNT) Native.gpuCountEnable(MetalPipeline.GPU_COUNT_PATH, Integer.getInteger("metalforge.metal.gpuCount.every", 1),
+			!"false".equals(System.getProperty("metalforge.metal.gpuCount.groups")));
+		if (Cpu.PASS || Cpu.CMD_AHEAD) Native.cpuFlags(Cpu.nativeFlags(Cpu.PASS)); // opt-in: see mc_cpu_flags
 	}
 
-	MetalPipeline pipeline(RenderPipeline pipeline) {
-		MetalPipeline p = this.pipelines.get(pipeline);
-		if (p == null) {
-			p = MetalPipeline.compile(this.ctx, pipeline, this.defaultShaderSource);
-			if (p == null) return MetalPipeline.INVALID;
-			this.pipelines.put(pipeline, p);
+	/** Queues an ARENA_RESERVE arena for provisioning, and with culling on the two caches MetalTerrain.ArenaCache adds for it. */
+	private boolean reserveArena(int delayMs) {
+		if (!Native.poolAdd(this.ctx, ARENA_RESERVE, delayMs)) return false;
+		if (MetalTerrain.OCC) {
+			// ArenaCache's bounds and boxes: 8 bytes per quad slot, a slot being 4 vertices of 20 bytes (+2 slots). If this drifts
+			// from MetalTerrain the pool just doesn't match them (it hands out buffers at most a quarter bigger than asked for).
+			long cache = (ARENA_RESERVE / 80 + 2) * 8;
+			for (int i = 0; i < 2; i++) Native.poolAdd(this.ctx, cache, delayMs);
 		}
-		return p;
+		return true;
+	}
+
+	@Override
+	public GpuSurfaceBackend createSurface(long windowHandle, BooleanSupplier isIconified) {
+		return new MetalSurface(this.ctx, this.encoder, windowHandle);
 	}
 
 	@Override
@@ -76,24 +102,35 @@ final class MetalDevice implements GpuDeviceBackend {
 		return MetalSampler.create(this.ctx, u, v, min, mag, maxAnisotropy, maxLod);
 	}
 
-	@Override
-	public GpuTexture createTexture(@Nullable Supplier<String> label, @GpuTexture.Usage int usage, TextureFormat format, int width, int height, int layers, int mips) {
-		return this.createTexture(label == null ? null : label.get(), usage, format, width, height, layers, mips);
-	}
+	/**
+	 * -Dmetalforge.metal.residentAnim: sprite animation frame textures kept in a residency set the queue carries. Each frame is a small texture
+	 * drawn into its atlas only on the ticks that need it; between those uses its pages go idle and the system compresses them, and the
+	 * first pass of the next tick that samples them waits while they come back (on the base chips ~0.4-0.6 ms of GPU in the blocks atlas's
+	 * mip-0 animation pass, the same draws ~10 us on the mips after it). Resident, they stay wired. Pure residency: nothing drawn changes.
+	 */
+	private static long residentBytes, residentCount;
 
 	@Override
-	public GpuTexture createTexture(@Nullable String label, @GpuTexture.Usage int usage, TextureFormat format, int width, int height, int layers, int mips) {
+	public GpuTexture createTexture(@Nullable String label, @GpuTexture.Usage int usage, GpuFormat format, int width, int height, int layers, int mips) {
 		// MTLTextureUsage: ShaderRead 1, RenderTarget 4. Copies need no usage bit in Metal.
 		int mtlUsage = ((usage & GpuTexture.USAGE_TEXTURE_BINDING) != 0 ? 1 : 0) | ((usage & GpuTexture.USAGE_RENDER_ATTACHMENT) != 0 ? 4 : 0);
+		// Split-pass occlusion builds its hi-Z from the main pass's depth.
+		// Shaderpacks sample the game's depth (depthtex0) too.
+		if (MetalTerrain.OCC && format == GpuFormat.D32_FLOAT) mtlUsage |= 1;
 		boolean cube = (usage & GpuTexture.USAGE_CUBEMAP_COMPATIBLE) != 0;
 		long handle = Native.textureNew(this.ctx, MetalConst.pixelFormat(format), width, height, layers, mips, Math.max(1, mtlUsage), cube ? 1 : 0);
 		if (handle == 0) throw new IllegalStateException("Couldn't create " + width + "x" + height + " " + format + " texture " + label);
-		return new MetalTexture(this.encoder, handle, usage, label == null ? "" : label, format, width, height, layers, mips);
-	}
-
-	@Override
-	public GpuTextureView createTextureView(GpuTexture texture) {
-		return this.createTextureView(texture, 0, texture.getMipLevels());
+		MetalTexture texture = new MetalTexture(this.encoder, handle, usage, label == null ? "" : label, format, width, height, layers, mips);
+		texture.shaderWrite = (mtlUsage & 2) != 0;
+		if (ResidentAnim.creating && Native.textureResident(this.ctx, handle, 1)) {
+			texture.resident = true;
+			long bytes = 0;
+			for (int m = 0; m < mips; m++) bytes += (long) Math.max(1, width >> m) * Math.max(1, height >> m) * format.blockSize() * Math.max(1, layers);
+			texture.residentBytes = bytes;
+			residentBytes += bytes;
+			if (++residentCount % 100 == 0) System.out.println("mcopt-metal: " + residentCount + " animation frame textures resident, " + residentBytes / 1024 + " KB");
+		}
+		return texture;
 	}
 
 	@Override
@@ -103,20 +140,37 @@ final class MetalDevice implements GpuDeviceBackend {
 
 	@Override
 	public GpuBuffer createBuffer(@Nullable Supplier<String> label, @GpuBuffer.Usage int usage, long size) {
-		return new MetalBuffer(this.encoder, Native.bufferNew(this.ctx, Math.max(16, size)), usage, size);
+		MetalEvents.Operation event = MetalEvents.begin("allocate", -1, size);
+		// Sodium's ArenaAggregator names every geometry and index arena this way.
+		boolean arena = label != null && "Arena buffer".equals(label.get());
+		MetalBuffer buffer;
+		try {
+			long handle = 0, actual = size;
+			if (arena && ARENA_RESERVE > 0 && size >= ARENA_RESERVE_MIN) {
+				// At most twice what was asked for: Sodium fills an arena over time, a much bigger one would mostly sit empty.
+				if (size <= ARENA_RESERVE && size * 2 >= ARENA_RESERVE) handle = Native.poolTake(size, ARENA_RESERVE);
+				if (handle != 0) {
+					actual = Native.bufferLength(handle);
+					this.arenaReserved = false;
+				}
+				// The next one a second later: provisioning takes memory, and this frame is already finding some for the arena's use.
+				if (!this.arenaReserved) this.arenaReserved = this.reserveArena(handle != 0 ? 1000 : 0);
+			}
+			buffer = new MetalBuffer(this.encoder, handle != 0 ? handle : Native.bufferNew(this.ctx, size), usage, actual);
+		} finally {
+			MetalEvents.end(event);
+		}
+		buffer.arena = MetalTerrain.OCC && arena;
+		if (buffer.arena) MetalEvents.arenaTransfer("allocate", size, 0, size);
+		return buffer;
 	}
 
 	@Override
 	public GpuBuffer createBuffer(@Nullable Supplier<String> label, @GpuBuffer.Usage int usage, ByteBuffer data) {
 		// A brand-new buffer isn't referenced by any command yet, so the data can go straight into its memory.
-		MetalBuffer buffer = new MetalBuffer(this.encoder, Native.bufferNew(this.ctx, Math.max(16, data.remaining())), usage, data.remaining());
+		MetalBuffer buffer = new MetalBuffer(this.encoder, Native.bufferNew(this.ctx, data.remaining()), usage, data.remaining());
 		MemoryUtil.memCopy(MemoryUtil.memAddress(data), buffer.address, data.remaining());
 		return buffer;
-	}
-
-	@Override
-	public String getImplementationInformation() {
-		return "Metal (MetalForge, ported from mcopt) on " + this.renderer;
 	}
 
 	@Override
@@ -130,62 +184,10 @@ final class MetalDevice implements GpuDeviceBackend {
 	}
 
 	@Override
-	public String getVendor() {
-		return "Apple";
-	}
-
-	@Override
-	public String getBackendName() {
-		return "Metal";
-	}
-
-	@Override
-	public String getVersion() {
-		return "Metal 3 (MetalForge/mcopt)";
-	}
-
-	@Override
-	public String getRenderer() {
-		return this.renderer;
-	}
-
-	@Override
-	public int getMaxTextureSize() {
-		return 16384;
-	}
-
-	@Override
-	public int getUniformOffsetAlignment() {
-		return 256;
-	}
-
-	@Override
-	public CompiledRenderPipeline precompilePipeline(RenderPipeline pipeline, @Nullable ShaderSource shaderSource) {
-		MetalPipeline p = this.pipelines.get(pipeline);
-		if (p == null) {
-			p = MetalPipeline.compile(this.ctx, pipeline, shaderSource == null ? this.defaultShaderSource : shaderSource);
-			if (p == null) return MetalPipeline.INVALID;
-			this.pipelines.put(pipeline, p);
-		}
-		return p;
-	}
-
-	@Override
-	public void clearPipelineCache() {
-		for (MetalPipeline p : this.pipelines.values()) {
-			if (p.isValid()) this.encoder.afterGpuFinishes(p::close);
-		}
-		this.pipelines.clear();
-	}
-
-	@Override
-	public List<String> getEnabledExtensions() {
-		return List.of();
-	}
-
-	@Override
-	public int getMaxSupportedAnisotropy() {
-		return 16;
+	public BackendRenderPipeline.Pending compilePipeline(BackendRenderPipeline.CreateInfo info) {
+		// Called on a worker thread by the frontend; Metal pipeline creation is thread-safe, so compile right here.
+		MetalPipeline pipeline = MetalPipeline.compile(this.encoder, info);
+		return () -> pipeline;
 	}
 
 	@Override
@@ -194,65 +196,48 @@ final class MetalDevice implements GpuDeviceBackend {
 	}
 
 	@Override
-	public void setVsync(boolean enabled) {
-		this.surface.setVsync(enabled);
-	}
-
-	@Override
-	public void presentFrame() {
-		this.encoder.submit(true);
-		if (this.surface.smooth()) this.surface.pacer.endFrame();
-		long t = System.nanoTime();
-		if (t - this.shownLoggedAt > 5_000_000_000L) {
-			// on-screen spacing of displayed frames (native shownWatch): 1 refresh apart = smooth, 2 = a refresh repeated, 3+ = hitch
-			if (this.shownLoggedAt != 0) org.slf4j.LoggerFactory.getLogger("MetalForge").info("[shown] 1x={} 2x={} 3x+={} untimed={} smooth={}",
-				Native.shown(1), Native.shown(2), Native.shown(3), Native.shown(0), this.surface.smooth());
-			else for (int k = 0; k < 4; k++) Native.shown(k);
-			this.shownLoggedAt = t;
-		}
-		if (FRAME_LOG) this.recordFrame(t);
-	}
-
-	private long shownLoggedAt;
-
-	/** -Dmetalforge.metal.frameLog=true logs the percentiles of frame time (time between two presentFrame calls) every 5 seconds. */
-	private static final boolean FRAME_LOG = Boolean.parseBoolean(System.getProperty("metalforge.metal.frameLog", "false"));
-	/** Frame times in 0.1 ms bins up to 100 ms, so percentiles are exact to 0.1 ms. The last bin counts frames of 100 ms or more. */
-	private final int[] frameBins = new int[1001];
-	private long frameCount, frameMaxNs, lastFrameAt, frameLoggedAt;
-
-	private void recordFrame(long t) {
-		if (this.lastFrameAt != 0) {
-			long ns = t - this.lastFrameAt;
-			this.frameBins[(int) Math.min(ns / 100_000L, 1000L)]++;
-			this.frameCount++;
-			if (ns > this.frameMaxNs) this.frameMaxNs = ns;
-		}
-		this.lastFrameAt = t;
-		if (t - this.frameLoggedAt > 5_000_000_000L) {
-			if (this.frameLoggedAt != 0 && this.frameCount > 0) {
-				org.slf4j.LoggerFactory.getLogger("MetalForge").info("[frame] n={} p50={} p95={} p99={} max={} ms",
-					this.frameCount, this.framePercentile(0.50), this.framePercentile(0.95), this.framePercentile(0.99), String.format("%.1f", this.frameMaxNs / 1e6));
+	public GpuQueryPool createTimestampQueryPool(int size) {
+		return new GpuQueryPool() {
+			@Override
+			public int size() {
+				return size;
 			}
-			java.util.Arrays.fill(this.frameBins, 0);
-			this.frameCount = 0;
-			this.frameMaxNs = 0;
-			this.frameLoggedAt = t;
-		}
-	}
 
-	/** The upper edge of the bin holding the given percentile, in ms. The overflow bin reports the true maximum. */
-	private String framePercentile(double p) {
-		long target = (long) Math.ceil(this.frameCount * p), seen = 0;
-		for (int i = 0; i < this.frameBins.length; i++) {
-			seen += this.frameBins[i];
-			if (seen >= target) return i == 1000 ? String.format("%.1f", this.frameMaxNs / 1e6) : String.format("%.1f", (i + 1) / 10.0);
-		}
-		return "0.0";
+			@Override
+			public OptionalLong getValue(int index) {
+				return OptionalLong.empty();
+			}
+
+			@Override
+			public OptionalLong[] getValues(int index, int count) {
+				OptionalLong[] values = new OptionalLong[count];
+				java.util.Arrays.fill(values, OptionalLong.empty());
+				return values;
+			}
+
+			@Override
+			public void close() {
+			}
+		};
 	}
 
 	@Override
-	public boolean isZZeroToOne() {
-		return true;
+	public long getTimestampCalibrationOffset() {
+		return 0;
+	}
+
+	@Override
+	public DeviceInfo getDeviceInfo() {
+		return this.info;
+	}
+
+	static void residentReleased(MetalTexture t) {
+		residentBytes -= t.residentBytes;
+		residentCount--;
+	}
+
+	/** The animation frame textures kept resident so far (count, bytes). */
+	public static long[] residentAnimation() {
+		return new long[] {residentCount, residentBytes};
 	}
 }

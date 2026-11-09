@@ -6,6 +6,7 @@ public final class Pacing {
 	}
 
 	public static boolean smooth() {
-		return MetalDevice.smoothPacing();
+		MetalSurface s = MetalSurface.active;
+		return s != null && s.smooth();
 	}
 }

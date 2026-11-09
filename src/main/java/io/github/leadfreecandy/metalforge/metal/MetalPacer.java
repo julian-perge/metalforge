@@ -38,7 +38,11 @@ final class MetalPacer {
 
 	/** The beat: the refresh period, times n when the game's frame limit asks for fewer frames than the display shows. */
 	private static double beat(double period) {
-		int limit = net.minecraft.client.Minecraft.getInstance().getFramerateLimitTracker().getFramerateLimit();
+		// NeoForge's loading screen presents through this surface before Minecraft creates its frame limit tracker, so those
+		// frames keep the plain refresh period.
+		var tracker = net.minecraft.client.Minecraft.getInstance().getFramerateLimitTracker();
+		if (tracker == null) return period;
+		int limit = tracker.getFramerateLimit();
 		if (limit <= 0 || limit >= 260) return period;
 		long n = Math.max(1, Math.round(1.0 / (period * limit)));
 		return period * n;

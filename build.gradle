@@ -23,6 +23,18 @@ neoForge {
     }
 }
 
+// The 26.3 port brings the Metal backend up first. The optimization mixins and Sodium on Metal still target 26.1.2 APIs, so they
+// stay out of the build (and their mixin configs out of neoforge.mods.toml) until their own port-26.3 slices.
+sourceSets.main.java {
+    exclude 'io/github/leadfreecandy/metalforge/MixinPlugin.java'
+    exclude 'io/github/leadfreecandy/metalforge/mixin/**'
+    exclude 'io/github/leadfreecandy/metalforge/opt/**'
+    exclude 'io/github/leadfreecandy/metalforge/shader/**'
+    exclude 'io/github/leadfreecandy/metalforge/metal/mixin/sodium/**'
+    exclude 'io/github/leadfreecandy/metalforge/metal/MetalSodium.java'
+    exclude 'io/github/leadfreecandy/metalforge/metal/GlslFixup.java'
+}
+
 repositories {
     exclusiveContent {
         forRepository { maven { name = 'Modrinth'; url = 'https://api.modrinth.com/maven' } }

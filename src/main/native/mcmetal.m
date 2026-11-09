@@ -1972,6 +1972,26 @@ static uint64_t pqAcq;  // this frame's hand-off, published by pqSubmit after th
 static double pqTarget[PQ_SLOTS];  // MetalForge: present time (0 = as soon as possible)
 static double pqTargetPending;
 void evo_present_target(double t) { pqTargetPending = t; }
+
+// NeoForge's CommandEncoder.clearStencilTexture: an empty render pass whose stencil attachment clears to value. A combined
+// depth-stencil texture also attaches as depth, loaded and stored, so its depth is kept.
+void evo_clear_stencil(Enc *enc, id<MTLTexture> tex, int value) {
+	endBlit(enc);
+	endRender(enc);
+	@autoreleasepool {
+		MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
+		rp.stencilAttachment.texture = tex;
+		rp.stencilAttachment.loadAction = MTLLoadActionClear;
+		rp.stencilAttachment.storeAction = MTLStoreActionStore;
+		rp.stencilAttachment.clearStencil = (uint32_t) value;
+		if (tex.pixelFormat != MTLPixelFormatStencil8) {
+			rp.depthAttachment.texture = tex;
+			rp.depthAttachment.loadAction = MTLLoadActionLoad;
+			rp.depthAttachment.storeAction = MTLStoreActionStore;
+		}
+		[[cmd(enc) renderCommandEncoderWithDescriptor:rp] endEncoding];
+	}
+}
 void mc_cadence_present(id<CAMetalDrawable> drawable, int slot);
 
 int mc_present_queued_acquire(Enc *enc, CAMetalLayer *layer, id<MTLTexture> src, long cadence) {
