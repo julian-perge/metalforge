@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "plugin": "io.github.leadfreecandy.metalforge.MixinPlugin",
   "client": [
+    "prelude.GameRendererPreludeMixin",
     "gui_layer.GuiRenderStateMixin",
     "gui_layer.GuiRenderStateNodeMixin",
     "gui_sort.GuiRendererSortMixin",
