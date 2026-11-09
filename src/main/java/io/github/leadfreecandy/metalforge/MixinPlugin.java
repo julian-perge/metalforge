@@ -33,7 +33,7 @@ public final class MixinPlugin implements IMixinConfigPlugin {
     @Override public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {}
     @Override
     public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
-        if (mixinClassName.equals(PREFIX + "toro_light.LevelRendererToroMixin")) {
+        if (mixinClassName.equals(PREFIX + "toro_light.LevelExtractorToroMixin")) {
             boolean ok = io.github.leadfreecandy.metalforge.opt.ToroLight.patch(targetClass);
             org.slf4j.LoggerFactory.getLogger("MetalForge").info("toro_light: {}", ok ? "patched ToroHealth's in-world bar hook" : "ToroHealth hook not found, unchanged");
         }

@@ -50,7 +50,7 @@ public final class ToroLight {
         return false;
     }
 
-    /** Resolved on first use, not while LevelRenderer is being transformed. Without access to the private gate the light is
+    /** Resolved on first use, not while LevelExtractor is being transformed. Without access to the private gate the light is
      * computed for every entity, as ToroHealth does. */
     private static void resolve() throws ReflectiveOperationException {
         Class<?> c = Class.forName(BAR_RENDERER.replace('/', '.'));
