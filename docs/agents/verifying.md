@@ -4,7 +4,7 @@ MetalForge has no unit tests or GameTests, so a change is checked by `just build
 
 ## Structure Lab bridge
 
-Structure Lab is a local mod that drives a dev client from a script, so a check needs no one at the keyboard. It is not published: build it from the Structure Lab repo's branch for the same Minecraft version, and add it to a dev client with `just client -PstructureLabJar=<path to jar>`.
+Structure Lab is a local mod that drives a dev client from a script, so a check needs no one at the keyboard. It is not published: build it from the [Structure Lab repo](https://github.com/julian-perge/MinecraftStructureInjector)'s branch for the same Minecraft version, and add it to a dev client with `just client -PstructureLabJar=<path to jar>`.
 
 The bridge writes `<game dir>/structurelab/connection.json` with a `url` and a `token`. POST a JSON body `{"op": "<op>", ...}` to the `url` with the header `Authorization: Bearer <token>`.
 
