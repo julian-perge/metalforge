@@ -9,6 +9,7 @@
     "gui_layer.GuiRenderStateMixin",
     "gui_layer.GuiRenderStateNodeMixin",
     "gui_sort.GuiRendererSortMixin",
+    "lootr_far.LootrClientTickMixin",
     "cutout_sort.ChunkBuildBuffersMixin",
     "cutout_sort.ChunkMeshBufferBuilderAccessor"
   ],

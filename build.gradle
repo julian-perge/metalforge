@@ -30,7 +30,6 @@ sourceSets.main.java {
     exclude 'io/github/leadfreecandy/metalforge/mixin/fbo/**'
     exclude 'io/github/leadfreecandy/metalforge/mixin/particle_collide/**'
     exclude 'io/github/leadfreecandy/metalforge/mixin/toro_light/**'
-    exclude 'io/github/leadfreecandy/metalforge/mixin/lootr_far/**'
     exclude 'io/github/leadfreecandy/metalforge/shader/**'
     exclude 'io/github/leadfreecandy/metalforge/metal/mixin/sodium/**'
     exclude 'io/github/leadfreecandy/metalforge/metal/MetalSodium.java'

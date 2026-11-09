@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Lootr's client tick runs for every Lootr container in loaded chunks every tick (3.4% of the render thread in the pack:
  * config reads, type lookups, a line-of-sight raycast) and all it does is spawn particles (unopened / refresh / decay).
- * Vanilla drops any particle spawned more than 32 blocks from the camera (LevelRenderer.addParticleInternal), so for
+ * Vanilla drops any particle spawned more than 32 blocks from the camera (ClientLevel.doAddParticle), so for
  * containers farther than that, plus the 1-block spread of Lootr's particles, nothing it spawns would ever exist. Skipped
  * there. (The only difference: those calls no longer draw from the level's random source.)
  */
@@ -48,7 +48,7 @@ public abstract class LootrClientTickMixin {
     @Inject(method = "handleInstanceClientTick", at = @At("HEAD"), cancellable = true)
     private static void metalforge$far(ILootrContainerInstance instance, CallbackInfo ci) {
         if (instance == null || !metalforge$safe()) return;
-        Camera camera = Minecraft.getInstance().gameRenderer.getMainCamera();
+        Camera camera = Minecraft.getInstance().gameRenderer.mainCamera();
         if (camera == null) return;
         Vec3 c = instance.getParticleCenter();
         if (c != null && camera.position().distanceToSqr(c) > CUTOFF_SQ) ci.cancel();
