@@ -60,13 +60,11 @@ Each one leaves the rendered image unchanged and can be switched off individuall
 
 | Option | What it does |
 |---|---|
-| `outline` | Skips the full-screen entity-outline clear and blend while nothing is glowing (the blend of an empty target is a no-op). |
 | `prelude` | Drops the main-target clear that the level's own clear immediately overwrites, plus a render-target round trip on tick frames. |
 | `fbo` | (OpenGL) Fewer framebuffer switches: depth-only clears happen in the framebuffer already holding that depth, and no redundant unbinds. |
 | `gui_layer` | Vanilla places each GUI element by testing it against every element already on screen (quadratic). A small spatial index gives the same answer. This is about 2% of frame time with busy HUDs such as minimaps. |
 | `gui_sort` | Sorts GUI elements with an unboxed comparator in exactly vanilla's order. |
 | `particle_collide` | Particles in open air skip the full collision computation when none of the blocks they could touch has a collision shape. |
-| `alpha_const` | (Sodium) The alpha cutoff is constant per pass. It's baked into the shader, removing a per-vertex varying and per-fragment unpacking. |
 | `lean_sampling` | (Sodium) With NEAREST filtering (Sodium's default), uses cheaper but identical texel and LOD math in the terrain shader. |
 | `cutout_sort` | (Sodium) Sorts cutout quads (leaves, grass) front-to-back within each facing at mesh time, so the GPU rejects more hidden fragments. |
 | `toro_light` | (ToroHealth) Looks up entity light only for entities that actually get an in-world health bar. |

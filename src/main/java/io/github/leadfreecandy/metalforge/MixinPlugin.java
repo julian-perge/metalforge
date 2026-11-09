@@ -11,7 +11,7 @@ public final class MixinPlugin implements IMixinConfigPlugin {
     private static final String PREFIX = "io.github.leadfreecandy.metalforge.mixin.";
     /** Optimizations that patch another mod: applied only when that mod is installed. */
     private static final java.util.Map<String, String> NEEDS_MOD = java.util.Map.of("lootr_far", "lootr", "toro_light", "torohealth",
-        "infra", "sodium", "alpha_const", "sodium", "cutout_sort", "sodium");
+        "infra", "sodium", "cutout_sort", "sodium");
 
     @Override public void onLoad(String mixinPackage) {}
     @Override public String getRefMapperConfig() { return null; }

@@ -19,7 +19,6 @@ public final class ShaderPatches {
     static {
         Rgss.register();
         LeanSampling.register();
-        AlphaConst.register();
     }
 
     private ShaderPatches() {}

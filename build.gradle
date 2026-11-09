@@ -23,12 +23,15 @@ neoForge {
     }
 }
 
-// The 26.3 port brings the Metal backend up first. The optimization mixins and Sodium on Metal still target 26.1.2 APIs, so they
-// stay out of the build (and their mixin configs out of neoforge.mods.toml) until their own port-26.3 slices.
+// These still target 26.1.2 APIs, so they stay out of the build (and out of their mixin configs) until each is ported on
+// port-26.3: the optimizations below one commit at a time, then Sodium on Metal in its own slice.
 sourceSets.main.java {
-    exclude 'io/github/leadfreecandy/metalforge/MixinPlugin.java'
-    exclude 'io/github/leadfreecandy/metalforge/mixin/**'
-    exclude 'io/github/leadfreecandy/metalforge/opt/**'
+    exclude 'io/github/leadfreecandy/metalforge/mixin/infra/**'
+    exclude 'io/github/leadfreecandy/metalforge/mixin/fbo/**'
+    exclude 'io/github/leadfreecandy/metalforge/mixin/prelude/**'
+    exclude 'io/github/leadfreecandy/metalforge/mixin/particle_collide/**'
+    exclude 'io/github/leadfreecandy/metalforge/mixin/toro_light/**'
+    exclude 'io/github/leadfreecandy/metalforge/mixin/lootr_far/**'
     exclude 'io/github/leadfreecandy/metalforge/shader/**'
     exclude 'io/github/leadfreecandy/metalforge/metal/mixin/sodium/**'
     exclude 'io/github/leadfreecandy/metalforge/metal/MetalSodium.java'

@@ -9,6 +9,8 @@ authors="LeadFreeCandy"
 credits="Metal backend ported from mcopt by Noah Dunnagan (Apache-2.0)"
 description='''Native Apple Metal rendering for Minecraft on NeoForge (Apple Silicon Macs), with smooth frame pacing and exact client-side optimizations that also work on other platforms. Works with Sodium.'''
 [[mixins]]
+config="metalforge.mixins.json"
+[[mixins]]
 config="metalforge.metal.mixins.json"
 [[accessTransformers]]
 file="META-INF/accesstransformer.cfg"
