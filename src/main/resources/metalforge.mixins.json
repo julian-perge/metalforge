@@ -6,6 +6,7 @@
   "plugin": "io.github.leadfreecandy.metalforge.MixinPlugin",
   "client": [
     "prelude.GameRendererPreludeMixin",
+    "particle_collide.ParticleMixin",
     "gui_layer.GuiRenderStateMixin",
     "gui_layer.GuiRenderStateNodeMixin",
     "gui_sort.GuiRendererSortMixin",

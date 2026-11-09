@@ -28,7 +28,6 @@ neoForge {
 sourceSets.main.java {
     exclude 'io/github/leadfreecandy/metalforge/mixin/infra/**'
     exclude 'io/github/leadfreecandy/metalforge/mixin/fbo/**'
-    exclude 'io/github/leadfreecandy/metalforge/mixin/particle_collide/**'
     exclude 'io/github/leadfreecandy/metalforge/mixin/toro_light/**'
     exclude 'io/github/leadfreecandy/metalforge/shader/**'
     exclude 'io/github/leadfreecandy/metalforge/metal/mixin/sodium/**'
