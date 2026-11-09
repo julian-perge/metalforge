@@ -20,8 +20,10 @@ public final class FboTracker {
         return depthFbo.get(depthId);
     }
 
-    public static void clear() {
-        fboDepth.clear();
-        depthFbo.clear();
+    /** The FBO is being deleted. Its depth texture keeps no entry pointing at it; another FBO with that depth is found again on its next use. */
+    public static void forget(int fbo) {
+        if (!fboDepth.containsKey(fbo)) return;
+        int depthId = fboDepth.remove(fbo);
+        if (depthFbo.get(depthId) == fbo) depthFbo.remove(depthId);
     }
 }

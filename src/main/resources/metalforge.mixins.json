@@ -6,6 +6,8 @@
   "plugin": "io.github.leadfreecandy.metalforge.MixinPlugin",
   "client": [
     "infra.ShaderManagerMixin",
+    "fbo.GlCommandEncoderMixin",
+    "fbo.FrameBufferCacheMixin",
     "prelude.GameRendererPreludeMixin",
     "particle_collide.ParticleMixin",
     "gui_layer.GuiRenderStateMixin",
