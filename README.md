@@ -65,7 +65,6 @@ Each one leaves the rendered image unchanged and can be switched off individuall
 | `gui_layer` | Vanilla places each GUI element by testing it against every element already on screen (quadratic). A small spatial index gives the same answer. This is about 2% of frame time with busy HUDs such as minimaps. |
 | `gui_sort` | Sorts GUI elements with an unboxed comparator in exactly vanilla's order. |
 | `particle_collide` | Particles in open air skip the full collision computation when none of the blocks they could touch has a collision shape. |
-| `lean_sampling` | (Sodium) With NEAREST filtering (Sodium's default), uses cheaper but identical texel and LOD math in the terrain shader. |
 | `cutout_sort` | (Sodium) Sorts cutout quads (leaves, grass) front-to-back within each facing at mesh time, so the GPU rejects more hidden fragments. |
 | `toro_light` | (ToroHealth) Looks up entity light only for entities that actually get an in-world health bar. |
 | `lootr_far` | (Lootr) Skips Lootr's per-tick client particle logic for containers beyond 32 blocks, where vanilla discards any particle it would spawn. |

@@ -26,9 +26,7 @@ neoForge {
 // These still target 26.1.2 APIs, so they stay out of the build (and out of their mixin configs) until each is ported on
 // port-26.3: the optimizations below one commit at a time, then Sodium on Metal in its own slice.
 sourceSets.main.java {
-    exclude 'io/github/leadfreecandy/metalforge/mixin/infra/**'
     exclude 'io/github/leadfreecandy/metalforge/mixin/fbo/**'
-    exclude 'io/github/leadfreecandy/metalforge/shader/**'
     exclude 'io/github/leadfreecandy/metalforge/metal/mixin/sodium/**'
     exclude 'io/github/leadfreecandy/metalforge/metal/MetalSodium.java'
     exclude 'io/github/leadfreecandy/metalforge/metal/GlslFixup.java'

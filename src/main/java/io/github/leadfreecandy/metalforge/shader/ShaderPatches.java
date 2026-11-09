@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.function.UnaryOperator;
 
 /**
- * Composable text patches to Sodium's GLSL sources (applied by ShaderLoaderMixin). Each optimization registers its own
+ * Composable text patches to Sodium's GLSL sources (applied by ShaderManagerMixin), keyed by resource location. Each optimization registers its own
  * patch(es) only when enabled; patches are applied in registration order. A patch whose anchor text isn't found logs a
  * warning and leaves the source unchanged (never half-applies).
  */
@@ -18,7 +18,6 @@ public final class ShaderPatches {
 
     static {
         Rgss.register();
-        LeanSampling.register();
     }
 
     private ShaderPatches() {}

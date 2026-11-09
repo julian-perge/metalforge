@@ -10,7 +10,7 @@ import io.github.leadfreecandy.metalforge.Options;
  * fetches use explicit LOD/gradients, so the non-uniform branch is safe.
  */
 final class Rgss {
-    static final String PATH = "sodium:blocks/block_layer_opaque.fsh";
+    static final String PATH = "sodium:shaders/blocks/block_layer_opaque.fsh";
 
     private Rgss() {}
 
